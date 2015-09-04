@@ -24,6 +24,7 @@ CREATE TABLE matches (
   PRIMARY KEY (player1ID, player2ID),
   FOREIGN KEY (player1ID) REFERENCES players(id),
   FOREIGN KEY (player2ID) REFERENCES players(id),
+  FOREIGN KEY (winnerID) REFERENCES players(id),
   CHECK (player1ID < player2ID)
 );
 
