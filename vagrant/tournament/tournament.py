@@ -13,14 +13,41 @@ def connect():
 
 def deleteMatches():
     """Remove all the match records from the database."""
+    db = connect()
+    curs = db.cursor()
+    curs.execute("DELETE FROM matches")
+    # Should this similarly reset the players win/loss counts?
+    db.commit()
+    curs.close()
+    db.close()
 
 
 def deletePlayers():
     """Remove all the player records from the database."""
+    # delete from matches, just in case that hasn't been done
+    deleteMatches()
+    db = connect()
+    curs = db.cursor()
+    curs.execute("DELETE FROM players")
+    db.commit()
+    curs.close()
+    db.close()
+
 
 
 def countPlayers():
     """Returns the number of players currently registered."""
+    db = connect()
+    curs = db.cursor()
+    curs.execute("SELECT id FROM players")
+    # todo: see if I can run len() on curs()
+    # todo: alternately, do this with a query using count(*)
+    count = 0
+    for playerID in curs.fetchall():
+        ++count
+    curs.close()
+    db.close()
+    return count
 
 
 def registerPlayer(name):
@@ -32,6 +59,13 @@ def registerPlayer(name):
     Args:
       name: the player's full name (need not be unique).
     """
+    db = connect()
+    curs = db.cursor()
+    curs.execute("INSERT INTO players (id) VALUES (%s)", (name,))
+    db.commit()
+    curs.close()
+    db.close()
+    # todo add error handling
 
 
 def playerStandings():
