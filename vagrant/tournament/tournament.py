@@ -4,7 +4,8 @@
 #
 
 import psycopg2
-from random import choice
+from random import choice, shuffle
+
 
 
 def connect():
@@ -68,7 +69,7 @@ def registerPlayer(name):
     """
     db = connect()
     curs = db.cursor()
-    curs.execute("INSERT INTO players (id) VALUES (%s)", (name,))
+    curs.execute("INSERT INTO players (name) VALUES (%s)", (name,))
     db.commit()
     curs.close()
     db.close()
@@ -107,7 +108,7 @@ def reportMatch(winner, loser):
     # TODO add error handling
     # TODO accommodate ties?
     db = connect()
-    curs = db.curs()
+    curs = db.cursor()
     # update matches table
     curs.execute("INSERT INTO matches (winnerID, loserID) VALUES (%s, %s)",
                  (winner, loser))
@@ -136,6 +137,8 @@ def swissPairings():
         id2: the second player's unique id
         name2: the second player's name
     """
+
+    # TODO refactor and make more efficient
     db = connect()
     curs = db.cursor()
     # Step 1: grab all players.
@@ -150,6 +153,8 @@ def swissPairings():
     first_player = curs.fetchone()
     # None check because why not
     if first_player is None:
+        curs.close()
+        db.close()
         return None
     if first_player[2] == 0 and first_player[3] == 0:
         players.append(first_player)
@@ -164,7 +169,9 @@ def swissPairings():
             player2 = choice(players)
             players.remove(player2)
             # todo make more efficient?
-            pairings.append((player1, player2))
+            pairings.append((player1[0], player1[1], player2[0], player2[1]))
+        curs.close()
+        db.close()
         return pairings
     # Now, if matches have been played, players will need to be a list of lists
     else:
@@ -172,31 +179,51 @@ def swissPairings():
         players.append([first_player])
         next_player = curs.fetchone()
         while next_player is not None:
+            current_group = players[player_group_id]
             # if numWins is different, we've begun a new group
-            if next_player[2] != players[player_group_id][2]:
+            if next_player[2] != players[player_group_id][0][2]:
                 players.append([next_player])
-                ++player_group_id
+                player_group_id += 1
             else:
                 players[player_group_id].append(next_player)
             next_player = curs.fetchone()
         # Now, having gotten players grouped by numWins, it's time to generate
         # pairings.
-        player_group_id = 0
+        # Having grouped each player by wins, shuffle each group
+        for l in players:
+            shuffle(l)
+
+        # Then, dump each group into a single list.
+        all_players = [x[i] for x in players for i in range(len(x))]
+        # Then, start at the head.
         pairings = []
-        while player_group_id < len(players):
-            player_group = players[player_group_id]
-            # choose player1
-            player1 = choice(player_group)
-            player_group.remove(player1)
-            # choose player2. Assumes subgroups are even—not safe
-            if len(player_group) == 0:
-                player_group = players[++player_group_id]
-            player2 = choice(player_group)
-            player_group.remove(player2)
-            if len(player_group) == 0:
-                ++player_group_id
-            pairings.append((player1, player2))
-            # TODO check for duplicates
+        while len(all_players) > 2:
+            # Pick the first player
+            player1 = all_players[0]
+            # Iterate through the list, keeping track of indices.
+            i = 1
+            found = False
+            player2 = all_players[i]
+            while i < len(all_players) and not found:
+                curs.execute("SELECT winnerID, loserID FROM matches where "
+                             "(winnerID = %s AND loserID = %s) OR (winnerID ="
+                             " %s AND loserID = %s)", (player1[0], player2[0],
+                                                       player2[0], player1[0]))
+                if curs.fetchone() is None:
+                    found = True
+                else:
+                    i += 1
+                    player2 = all_players[i]
+            # As soon as you find a match that hasn't happened, remove it.
+            pairings.append((player1[0], player1[1], player2[0], player2[1]))
+            del all_players[i]
+            del all_players[0]
+        # Keep going until the list only contains two items.
+        # Those two are the last pair no matter what.
+        pairings.append((all_players[0][0], all_players[0][1],
+                         all_players[1][0], all_players[1][1]))
+        curs.close()
+        db.close()
         return pairings
 
 
