@@ -7,6 +7,10 @@
 -- these lines here.
 
 
+-- Create tournament database
+CREATE DATABASE tournament;
+\c tournament;
+
 CREATE TABLE players (
   id SERIAL PRIMARY KEY,
   name VARCHAR(50) NOT NULL,
@@ -29,3 +33,4 @@ ON players(wins, matches, id);
 CREATE INDEX matchesByLoser
 ON matches(loserID, winnerID);
 
+-- Insert views for common queries here
